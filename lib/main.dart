@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'api.dart';
+import 'mail_report.dart';
 
 const _native = MethodChannel('com.raiot.richard.demo/settings');
 const _defaultEndpoint = String.fromEnvironment(
@@ -647,6 +648,9 @@ class _TaskDetailState extends State<TaskDetail> {
     final isMail = run['workflow'] == 'mail163';
     final needsLogin = !terminal && userAction?['kind'] == 'login';
     final scanWindow = run['scan_window'] as Map?;
+    final mailReport = isMail && run['report'] is Map
+        ? run['report'] as Map
+        : null;
     return Scaffold(
       appBar: AppBar(
         title: const Text('任务进展'),
@@ -787,6 +791,17 @@ class _TaskDetailState extends State<TaskDetail> {
                   run['result'].toString(),
                   style: const TextStyle(height: 1.6),
                 ),
+              ]),
+            if (mailReport != null)
+              section('邮件发送与扫描记录', Icons.fact_check_outlined, [
+                for (final line in mailReportLines(mailReport))
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: SelectableText(
+                      line,
+                      style: const TextStyle(height: 1.6),
+                    ),
+                  ),
               ]),
             if (run['error'] != null)
               section('需要留意', Icons.info_outline, [
