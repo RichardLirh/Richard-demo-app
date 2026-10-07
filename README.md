@@ -37,7 +37,6 @@ App 每 2–3 秒刷新。审批携带用户打开确认框时看到的草稿版
 
 `flutter analyze` 与 `flutter test test/api_test.dart` 检查静态代码、鉴权头和过期审批冲突。`./Build-Demo.ps1 -IntegrationTest` 在真机验证创建、事件页与取消，不依赖模型任务执行成功。完整 App → Hermes 云端执行应另行验收，不以排队状态代替执行成功。
 
-当前验证记录（2026-10-08）：`flutter analyze` 无问题；API 单元测试与真实本机服务集成测试共 3 项通过；Android arm64 Debug APK 构建通过。普通 App 真机安装及冷启动成功，Flutter 真机集成测试 1 个场景通过（创建、详情/事件、取消）。测试后恢复普通 APK 时手机再次返回 `INSTALL_FAILED_USER_RESTRICTED` 并断开 USB；需要重新连接并允许安装以完成最终恢复和截图。云端模型全链路尚未验收。
+当前验证记录（2026-10-08）：`flutter analyze` 无问题；API 单元测试与真实本机服务集成测试共 3 项通过；Android arm64 Debug APK 构建通过。Flutter 真机集成测试 1 个场景通过（创建、详情/事件、取消）。测试后已成功恢复普通 App 0.1.0(1)，安装更新时间为 2026-10-08 01:59:49，冷启动返回 `Status: ok`，启动页面为 `MainActivity`。真机首页截图已目视确认显示本机 API 的 3 条已取消任务，证据位于 `../.local/app-restored-20261008.png`。2026-10-08 02:02 已重新连接并确认 ADB 授权，8010 与 18765 双端口 USB 转发均已恢复，普通 App 再次冷启动成功并更新同一路径截图；使用本机服务时请保持 USB 连接。云端模型全链路、实际人工接管和提交审批尚未通过本 App 真机验收。
 
 可用 APK：`artifacts/xiaozhi-task-demo-debug.apk`。该文件只留在本机，不进入 Git。
-
