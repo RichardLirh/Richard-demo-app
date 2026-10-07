@@ -78,4 +78,29 @@ void main() {
       await expectation;
     },
   );
+
+  test('owner confirmation sends only the reviewed version and hash', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() => server.close(force: true));
+    final pending = server.first;
+    final result = DemoApi(
+      'http://127.0.0.1:${server.port}',
+      'test-owner',
+    ).confirmMailDraft('draft-one', 3, 'reviewed-hash');
+    final request = await pending;
+    expect(request.method, 'POST');
+    expect(request.uri.path, '/api/mail-drafts/draft-one/confirm');
+    expect(jsonDecode(await utf8.decoder.bind(request).join()), {
+      'expected_version': 3,
+      'content_hash': 'reviewed-hash',
+    });
+    request.response.headers.contentType = ContentType.json;
+    request.response.write(
+      jsonEncode({
+        'run': {'id': 'run-one', 'mode': 'send_only'},
+      }),
+    );
+    await request.response.close();
+    expect((await result)['mode'], 'send_only');
+  });
 }

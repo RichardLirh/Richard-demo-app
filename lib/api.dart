@@ -95,6 +95,53 @@ class DemoApi {
       body: {},
     ),
   );
+  Future<List<Map<String, dynamic>>> mailDrafts() async {
+    final data = await request('/api/mail-drafts');
+    return (data['drafts'] as List)
+        .map((d) => Map<String, dynamic>.from(d as Map))
+        .toList();
+  }
+
+  Future<Map<String, dynamic>> mailDraft(String id) async =>
+      _draft(await request('/api/mail-drafts/${Uri.encodeComponent(id)}'));
+  Future<Map<String, dynamic>> saveMailDraft(
+    String subject,
+    String body, {
+    String? id,
+    int? version,
+  }) async => _draft(
+    await request(
+      id == null
+          ? '/api/mail-drafts'
+          : '/api/mail-drafts/${Uri.encodeComponent(id)}',
+      method: id == null ? 'POST' : 'PATCH',
+      body: {
+        'subject': subject,
+        'body': body,
+        if (id != null) 'expected_version': version,
+      },
+    ),
+  );
+  Future<Map<String, dynamic>> confirmMailDraft(
+    String id,
+    int version,
+    String hash,
+  ) async => _run(
+    await request(
+      '/api/mail-drafts/${Uri.encodeComponent(id)}/confirm',
+      method: 'POST',
+      body: {'expected_version': version, 'content_hash': hash},
+    ),
+  );
+  Future<Map<String, dynamic>> cancelMailDraft(String id) async => _draft(
+    await request(
+      '/api/mail-drafts/${Uri.encodeComponent(id)}/cancel',
+      method: 'POST',
+      body: {},
+    ),
+  );
+  Map<String, dynamic> _draft(dynamic data) =>
+      Map<String, dynamic>.from(data['draft'] ?? data);
   Map<String, dynamic> _run(dynamic data) =>
       Map<String, dynamic>.from(data['run'] ?? data);
 }

@@ -1,10 +1,21 @@
 /// Preserve external effects even if a mailbox task was stopped or failed.
+String mailPhase(String phase) =>
+    const {
+      'starting': '正在启动浏览器',
+      'waiting_login': '等待你登录',
+      'preparing': '正在核对内容',
+      'submitting': '正在发送',
+      'verifying': '正在核验发送结果',
+      'cleaning': '正在释放云资源',
+    }[phase] ??
+    phase;
+
 List<String> mailReportLines(Map report) {
   final lines = <String>[];
   final receipt = report['sent_receipt'];
   final state = report['send_state']?.toString();
   if (receipt is Map && receipt['verified'] == true) {
-    lines.add('测试邮件已确认发送。取消任务不会撤回这封邮件。');
+    lines.add('邮件已确认发送。取消任务不会撤回这封邮件；尚未据此核实收件箱送达。');
     if (receipt['recipient'] != null) {
       lines.add('收件人：${receipt['recipient']}');
     }
@@ -12,9 +23,9 @@ List<String> mailReportLines(Map report) {
       lines.add('主题：${receipt['subject']}');
     }
   } else if (state == 'not_started') {
-    lines.add('测试邮件尚未开始发送。');
+    lines.add('邮件尚未开始发送。');
   } else if (state == 'rejected') {
-    lines.add('发送在提交前已停止，测试邮件未发送。');
+    lines.add('发送在提交前已停止，邮件未发送。');
   } else {
     lines.add('邮件发送结果尚未确认，请先检查已发送文件夹，避免重复发送。');
   }

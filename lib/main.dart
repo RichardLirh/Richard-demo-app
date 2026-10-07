@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import 'api.dart';
 import 'mail_report.dart';
+import 'mail_drafts.dart';
 
 const _native = MethodChannel('com.raiot.richard.demo/settings');
 const _defaultEndpoint = String.fromEnvironment(
@@ -12,8 +13,6 @@ const _defaultEndpoint = String.fromEnvironment(
   defaultValue: 'http://127.0.0.1:8010',
 );
 const _defaultToken = String.fromEnvironment('DEMO_API_TOKEN');
-const _demoPrompt =
-    '用云端浏览器登录163邮箱，给当前登录账号自己发一封联调测试邮件，扫描任务创建前72小时的邮件，按紧急待办、重要信息和其他邮件给出总结与建议。';
 const _ink = Color(0xFF172337);
 const _orange = Color(0xFFE5783C);
 
@@ -211,69 +210,21 @@ class _TaskHomeState extends State<TaskHome> {
   }
 
   Future<void> create() async {
-    final prompt = TextEditingController(text: _demoPrompt);
-    final value = await showModalBottomSheet<String>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (context) => Padding(
-        padding: EdgeInsets.fromLTRB(
-          24,
-          4,
-          24,
-          MediaQuery.viewInsetsOf(context).bottom + 24,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '交给小智一件事',
-              style: Theme.of(context).textTheme.headlineSmall
-                  ?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              '你在云端会话完成登录。小智只向该账号自己发送一封测试邮件，并总结最近72小时邮件。',
-              style: TextStyle(color: Colors.black54),
-            ),
-            const SizedBox(height: 20),
-            TextField(
-              key: const Key('taskPrompt'),
-              controller: prompt,
-              maxLines: 4,
-              maxLength: 2000,
-              decoration: const InputDecoration(labelText: '任务内容'),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                key: const Key('submitTask'),
-                onPressed: () {
-                  if (prompt.text.trim().isNotEmpty) {
-                    Navigator.pop(context, prompt.text.trim());
-                  }
-                },
-                icon: const Icon(Icons.arrow_forward),
-                label: const Text('开始执行'),
-              ),
-            ),
-          ],
-        ),
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => MailDraftEditor(api: api, openRun: openRun),
       ),
     );
-    prompt.dispose();
-    if (value == null || !mounted) return;
-    try {
-      final run = await api.create(value, workflow: 'mail163');
-      if (mounted) {
-        await openRun(run);
-        await refresh();
-      }
-    } catch (e) {
-      if (mounted) showError(context, e);
-    }
+    await refresh();
+  }
+
+  Future<void> openDrafts() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => MailDraftInbox(api: api, openRun: openRun),
+      ),
+    );
+    await refresh();
   }
 
   Future<void> openRun(Map<String, dynamic> run) => Navigator.push(
@@ -311,7 +262,7 @@ class _TaskHomeState extends State<TaskHome> {
         backgroundColor: _ink,
         foregroundColor: Colors.white,
         icon: const Icon(Icons.add),
-        label: const Text('新任务'),
+        label: const Text('写邮件'),
       ),
       body: RefreshIndicator(
         onRefresh: refresh,
@@ -368,6 +319,12 @@ class _TaskHomeState extends State<TaskHome> {
                 ],
               ),
             ),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: openDrafts,
+              icon: const Icon(Icons.mail_outline),
+              label: const Text('查看语音与手机邮件草稿'),
+            ),
             const SizedBox(height: 24),
             Row(
               children: [
@@ -414,7 +371,7 @@ class _TaskHomeState extends State<TaskHome> {
                     ),
                     SizedBox(height: 8),
                     Text(
-                      '创建邮箱任务，接管云端浏览器登录，\n查看最近72小时的邮件总结。',
+                      '对小智口述邮件，核对内容后确认发送。\n只发给自己，不扫描邮箱。',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Colors.black54, height: 1.6),
                     ),
@@ -646,6 +603,8 @@ class _TaskDetailState extends State<TaskDetail> {
     final approvalRequested = run['approval_requested'] == true;
     final userAction = run['user_action'] as Map?;
     final isMail = run['workflow'] == 'mail163';
+    final sendOnly = isMail && run['mode'] == 'send_only';
+    final mailContent = run['mail_authorization'] as Map?;
     final needsLogin = !terminal && userAction?['kind'] == 'login';
     final scanWindow = run['scan_window'] as Map?;
     final mailReport = isMail && run['report'] is Map
@@ -734,7 +693,17 @@ class _TaskDetailState extends State<TaskDetail> {
               style: const TextStyle(color: Colors.black45, fontSize: 12),
             ),
             const SizedBox(height: 22),
-            if (isMail && scanWindow != null)
+            if (sendOnly && mailContent != null)
+              section('已确认的邮件内容', Icons.mail_outline, [
+                const Text('仅发送到本人 163 邮箱，不扫描邮件。'),
+                const SizedBox(height: 10),
+                SelectableText('主题：${mailContent['subject']}'),
+                const SizedBox(height: 10),
+                SelectableText(mailContent['body']?.toString() ?? ''),
+                if (run['phase'] != null)
+                  Text('当前阶段：${mailPhase(run['phase'].toString())}'),
+              ]),
+            if (isMail && !sendOnly && scanWindow != null)
               section('邮件时间范围', Icons.schedule, [
                 Text(
                   '${formatTime(scanWindow['from'])} 至 ${formatTime(scanWindow['to'])}',
@@ -793,16 +762,20 @@ class _TaskDetailState extends State<TaskDetail> {
                 ),
               ]),
             if (mailReport != null)
-              section('邮件发送与扫描记录', Icons.fact_check_outlined, [
-                for (final line in mailReportLines(mailReport))
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: SelectableText(
-                      line,
-                      style: const TextStyle(height: 1.6),
+              section(
+                sendOnly ? '邮件发送记录' : '邮件发送与扫描记录',
+                Icons.fact_check_outlined,
+                [
+                  for (final line in mailReportLines(mailReport))
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: SelectableText(
+                        line,
+                        style: const TextStyle(height: 1.6),
+                      ),
                     ),
-                  ),
-              ]),
+                ],
+              ),
             if (run['error'] != null)
               section('需要留意', Icons.info_outline, [
                 SelectableText(
