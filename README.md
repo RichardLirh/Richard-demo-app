@@ -37,6 +37,7 @@ App 每 2–3 秒刷新。审批携带用户打开确认框时看到的草稿版
 
 `flutter analyze` 与 `flutter test test/api_test.dart` 检查静态代码、鉴权头和过期审批冲突。`./Build-Demo.ps1 -IntegrationTest` 在真机验证创建、事件页与取消，不依赖模型任务执行成功。完整 App → Hermes 云端执行应另行验收，不以排队状态代替执行成功。
 
-当前验证记录（2026-10-07）：`flutter analyze` 无问题；API 单元测试与真实本机服务集成测试共 3 项通过；Android arm64 Debug APK 构建通过。真机 ADB 已连接，但安装第一次被手机返回 `INSTALL_FAILED_USER_RESTRICTED`，需要用户打开 USB 安装并允许安装提示；手机 UI 和云端模型全链路尚未验收。
+当前验证记录（2026-10-08）：`flutter analyze` 无问题；API 单元测试与真实本机服务集成测试共 3 项通过；Android arm64 Debug APK 构建通过。普通 App 真机安装及冷启动成功，Flutter 真机集成测试 1 个场景通过（创建、详情/事件、取消）。测试后恢复普通 APK 时手机再次返回 `INSTALL_FAILED_USER_RESTRICTED` 并断开 USB；需要重新连接并允许安装以完成最终恢复和截图。云端模型全链路尚未验收。
 
 可用 APK：`artifacts/xiaozhi-task-demo-debug.apk`。该文件只留在本机，不进入 Git。
+
