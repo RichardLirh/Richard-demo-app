@@ -9,8 +9,8 @@ Flutter 原生 Android Demo：任务创建、列表、进展、事件记录、�
 1. 启动 RAIOT 本机任务服务（端口 8010）。
 2. 保持手机 USB 调试已授权。
 3. 运行 `./Build-Demo.ps1 -Install`。脚本从 `../.local/task-tokens.json` 的 `owner` 字段读取本地访问令牌，不打印令牌。
-4. 手机打开“小智任务”，创建演示 CRM 跟进任务。草稿生成后核对内容，再点击“审核并提交”。
-5. 需要人工操作时，打开同一会话入口，操作后返回 App 查看进展。
+4. 手机打开“小智任务”，新任务默认使用 `mail163` 流程：人工登录当前账号，向自己发一封固定测试邮件，扫描任务创建前 72 小时邮件并总结。旧 CRM 历史记录仍可查看。
+5. 出现“需要你操作”时，打开同一云端会话完成密码、扫码或验证码，不把这些信息写入任务描述。操作后返回 App 查看进展。
 
 USB 转发为 `adb reverse tcp:8010 tcp:8010` 和 `adb reverse tcp:18765 tcp:18765`。设置按钮可修改服务地址与访问令牌。模型密钥只保存在服务端，不进入 App 源码。
 
@@ -22,14 +22,16 @@ USB 转发为 `adb reverse tcp:8010 tcp:8010` 和 `adb reverse tcp:18765 tcp:187
 
 | 接口 | 请求 / 返回 |
 | --- | --- |
-| `POST /api/runs` | `{prompt}` → Run |
+| `POST /api/runs` | `{prompt, workflow: "mail163"}` → Run；旧调用默认 `crm` |
 | `GET /api/runs` | `{runs: Run[]}` |
 | `GET /api/runs/{id}` | Run |
 | `GET /api/runs/{id}/events` | `{events: Event[]}` |
 | `POST /api/runs/{id}/approve` | `{approved: true, version}` → Run |
 | `POST /api/runs/{id}/cancel` | `{}` → Run |
 
-Run 字段：`id, prompt, status, created_at, updated_at, result?, error?, session_url?, approval?`。`approval={version,draft,customer}`。状态：`queued/running/waiting_approval/completed/cancelling/cancelled/failed`。Event 字段：`id,type,message,timestamp`。
+Run 字段：`id, prompt, workflow, status, created_at, updated_at, result?, error?, session_url?, approval?, user_action?, scan_window?`。`approval={version,draft,customer}` 供旧 CRM 使用；邮箱登录期为 `running`，并返回 `user_action={kind:"login",message}`。`scan_window={from,to,timezone:"Asia/Shanghai"}` 以任务创建时刻固定 72 小时时间窗。状态：`queued/running/waiting_approval/completed/cancelling/cancelled/failed`。Event 字段：`id,type,message,timestamp`。
+
+`mail163` 创建按钮说明仅预授权向登录账号自己发送一封固定联调测试邮件，不开放其他收件人、附件、删除或邮件规则操作。完成必须有实际发送证据和扫描结果；登录入口可用不代表发信或扫描已经完成。
 
 App 每 2–3 秒刷新。审批携带用户打开确认框时看到的草稿版本，服务器以 409 拒绝过期批准。取消请求后由服务端确认清理完成才显示“已取消”。会话入口 URL 仅接受 HTTP(S)。
 

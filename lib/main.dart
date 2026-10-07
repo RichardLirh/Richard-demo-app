@@ -11,7 +11,8 @@ const _defaultEndpoint = String.fromEnvironment(
   defaultValue: 'http://127.0.0.1:8010',
 );
 const _defaultToken = String.fromEnvironment('DEMO_API_TOKEN');
-const _demoPrompt = '搜索关键词演示，起草跟进记录，等待人工审核。';
+const _demoPrompt =
+    '用云端浏览器登录163邮箱，给当前登录账号自己发一封联调测试邮件，扫描任务创建前72小时的邮件，按紧急待办、重要信息和其他邮件给出总结与建议。';
 const _ink = Color(0xFF172337);
 const _orange = Color(0xFFE5783C);
 
@@ -232,7 +233,7 @@ class _TaskHomeState extends State<TaskHome> {
             ),
             const SizedBox(height: 8),
             const Text(
-              '本次 Demo 在演示 CRM 中执行，提交前由你确认。',
+              '你在云端会话完成登录。小智只向该账号自己发送一封测试邮件，并总结最近72小时邮件。',
               style: TextStyle(color: Colors.black54),
             ),
             const SizedBox(height: 20),
@@ -264,7 +265,7 @@ class _TaskHomeState extends State<TaskHome> {
     prompt.dispose();
     if (value == null || !mounted) return;
     try {
-      final run = await api.create(value);
+      final run = await api.create(value, workflow: 'mail163');
       if (mounted) {
         await openRun(run);
         await refresh();
@@ -412,7 +413,7 @@ class _TaskHomeState extends State<TaskHome> {
                     ),
                     SizedBox(height: 8),
                     Text(
-                      '创建一个跟进任务，查看执行过程，\n在提交前确认草稿。',
+                      '创建邮箱任务，接管云端浏览器登录，\n查看最近72小时的邮件总结。',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Colors.black54, height: 1.6),
                     ),
@@ -642,6 +643,10 @@ class _TaskDetailState extends State<TaskDetail> {
     final terminal = ['completed', 'cancelled', 'failed'].contains(status);
     final approval = run['approval'] as Map?;
     final approvalRequested = run['approval_requested'] == true;
+    final userAction = run['user_action'] as Map?;
+    final isMail = run['workflow'] == 'mail163';
+    final needsLogin = !terminal && userAction?['kind'] == 'login';
+    final scanWindow = run['scan_window'] as Map?;
     return Scaffold(
       appBar: AppBar(
         title: const Text('任务进展'),
@@ -667,12 +672,13 @@ class _TaskDetailState extends State<TaskDetail> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: FilledButton.icon(
-                        key: const Key('approveTask'),
-                        onPressed:
-                            !busy &&
-                                status == 'waiting_approval' &&
-                                !approvalRequested &&
-                                approval?['version'] != null
+                        key: Key(needsLogin ? 'loginSession' : 'approveTask'),
+                        onPressed: needsLogin && run['session_url'] != null
+                            ? openSession
+                            : !busy &&
+                                  status == 'waiting_approval' &&
+                                  !approvalRequested &&
+                                  approval?['version'] != null
                             ? approve
                             : null,
                         icon: busy
@@ -683,9 +689,13 @@ class _TaskDetailState extends State<TaskDetail> {
                                   strokeWidth: 2,
                                 ),
                               )
-                            : const Icon(Icons.check_rounded),
+                            : Icon(
+                                needsLogin ? Icons.login : Icons.check_rounded,
+                              ),
                         label: Text(
-                          approvalRequested
+                          needsLogin
+                              ? '打开云端邮箱登录'
+                              : approvalRequested
                               ? '已确认，等待执行'
                               : status == 'waiting_approval'
                               ? '审核并提交'
@@ -720,6 +730,29 @@ class _TaskDetailState extends State<TaskDetail> {
               style: const TextStyle(color: Colors.black45, fontSize: 12),
             ),
             const SizedBox(height: 22),
+            if (isMail && scanWindow != null)
+              section('邮件时间范围', Icons.schedule, [
+                Text(
+                  '${formatTime(scanWindow['from'])} 至 ${formatTime(scanWindow['to'])}',
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  '以任务创建时刻为截止时间。实际覆盖的文件夹、邮件数量及未完成事项会列在结果中。',
+                  style: TextStyle(color: Colors.black54, height: 1.5),
+                ),
+              ]),
+            if (userAction != null && !terminal)
+              section('需要你操作', Icons.person_outline, [
+                Text(
+                  userAction['message']?.toString() ?? '请打开同一会话继续操作。',
+                  style: const TextStyle(height: 1.6),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  '密码、扫码和验证码在云端浏览器中完成，不要填进任务描述。',
+                  style: TextStyle(color: Colors.black54, height: 1.5),
+                ),
+              ]),
             if (approval != null && approval['draft'] != null)
               section('待确认的草稿', Icons.edit_note, [
                 if (approval['customer'] != null)

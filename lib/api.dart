@@ -63,8 +63,15 @@ class DemoApi {
 
   Future<Map<String, dynamic>> run(String id) async =>
       _run(await request('/api/runs/${Uri.encodeComponent(id)}'));
-  Future<Map<String, dynamic>> create(String prompt) async => _run(
-    await request('/api/runs', method: 'POST', body: {'prompt': prompt}),
+  Future<Map<String, dynamic>> create(
+    String prompt, {
+    String workflow = 'crm',
+  }) async => _run(
+    await request(
+      '/api/runs',
+      method: 'POST',
+      body: {'prompt': prompt, 'workflow': workflow},
+    ),
   );
   Future<List<Map<String, dynamic>>> events(String id) async {
     final data = await request('/api/runs/${Uri.encodeComponent(id)}/events');
